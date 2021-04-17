@@ -1,5 +1,8 @@
-{% extends 'base.html'%} {% block head_title %} this is amazing {% endblock
-head_title %} {% block content %}
+{% extends 'base.html'%}
+ {% block head_title %} 
+ this is amazing 
+ {% endblock head_title %}
+  {% block content %}
 
 <div class="row text-center">
   <div class="column">
@@ -16,8 +19,9 @@ head_title %} {% block content %}
       method="POST"
     >
       {% csrf_token %}
+      <div class='d-none alert alert-danger' id='tweet-create-from-error'></div>
       <input type="hidden" value="/" name="next" />
-      <textarea
+      <textarea required='required'
         class="form-control"
         name="content"
         placeholder="your tweet..."
@@ -33,6 +37,18 @@ head_title %} {% block content %}
 <div class="row" id="tweets">Loading ...</div>
 
 <script>
+  function handleTweetFormError(msg,display){
+    var myErrorDiv = document.getElementById('tweet-create-from-error')
+    if(display === true){
+      //show error
+      myErrorDiv.setAttribute("class", "d-block alert alert-danger")
+      myErrorDiv.innerText = msg
+    }else {
+      //hide error
+      myErrorDiv.setAttribute("class", "d-none alert alert-danger")
+    }
+  }
+
   function handleTweetCreateFormDidSubmit(event) {
     // console.log(event);
     event.preventDefault();
@@ -43,29 +59,64 @@ head_title %} {% block content %}
     const method = myForm.getAttribute("method");
 
     const xhr = new XMLHttpRequest();
+    const responseType = "json";
+    xhr.responseType = responseType;
     xhr.open(method, url);
     //these headers must be set to recognize whether a custom xhr request is ajax or not
     // xhr.setRequestHeader("HTTP_X_REQUESTED_WITH","XMLHttpRequest")
     xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
     xhr.onload = function () {
       if (xhr.status === 201) {
-        const serverResponse = xhr.response;
-        console.log(serverResponse, xhr.status);
-        formatTweetElement(serverResponse);
+        handleTweetFormError("", false) // what happens if we dont do this? 
+        const newTweetJson = xhr.response;
+        const newTweetElement = formatTweetElement(newTweetJson);
+        const oldHTML = tweetsContainerElement.innerHTML
+        tweetsContainerElement.innerHTML = newTweetElement + oldHTML
+        myForm.reset()
+
+      }
+      else if(xhr.status === 400){
+        const errorJson = xhr.response
+        console.log(errorJson);
+
+        const contentError = errorJson.content
+        let contentErrorMsg;
+        if (contentError) {
+          contentErrorMsg = contentError[0]
+          if(contentErrorMsg) {
+            handleTweetFormError(contentErrorMsg, true)
+          }
+          else
+          {
+          alert(" Another error occured. Try again")
+        }}
+        else {
+          alert(" Another error occured. Try again")
+        }
+        console.log(contentErrorMsg);
+      }
+      else if(xhr.status ===500){
+        alert("There was a server error. Please try error ")
       }
       //code to reload tweets after the request is successful
-      //
+      //console.log(serverResponse, xhr.status);
+
       // after we log, we want to show all tweets
       // const tweetsEl = document.getElementById("tweets")
       // loadTweets(tweetsEl)
       //now handle on server side
     };
+
+    xhr.onerror = function () {
+      alert("An error occured. Please try later ")
+      
+    }
     xhr.send(myFormData);
   }
   const tweetCreateFormEl1 = document.getElementById("tweet-create-form");
   tweetCreateFormEl1.addEventListener("submit", handleTweetCreateFormDidSubmit);
 
-  const tweetsEl = document.getElementById("tweets");
+  const tweetsContainerElement = document.getElementById("tweets");
   const loadTweets = function (tweetsElement) {
     const xhr = new XMLHttpRequest(); //xhr = SomeClass() in python
     const method = "GET"; //"POST"
@@ -89,7 +140,7 @@ head_title %} {% block content %}
     xhr.send();
   };
 
-  loadTweets(tweetsEl);
+  loadTweets(tweetsContainerElement);
 
   function handleDidLike(tweet_id, currentCount) {
     console.log(tweet_id, currentCount);
